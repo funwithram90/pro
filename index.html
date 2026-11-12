@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#fff6ef" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0c0610" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="Aangan — rent, receipts and one-tap WhatsApp reminders for small landlords in India. See who has paid, issue QR-verified receipts, draft polite reminders you open in WhatsApp, and reconcile your bank statement." />
+    <meta property="og:title" content="Aangan — rent, receipts and reminders" />
+    <meta property="og:description" content="See who has paid, issue QR-verified receipts, and draft rent reminders you open and send yourself in WhatsApp. Built for landlords with 1–50 units." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/icons/icon-512.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Aangan" />
+    <script>
+      // Apply the saved theme before first paint so dark-mode users never see a light flash.
+      try {
+        var m = localStorage.getItem("angan.mode"), a = localStorage.getItem("angan.accent"), w = localStorage.getItem("angan.wall"), r = document.documentElement;
+        r.setAttribute("data-wall", /^(holi|prism|opal|quartz|nebula|lagoon|courtyard|dusk|monsoon|marigold|plain|aurora|ocean|sakura|forest|peacock|midnight)$/.test(w) ? w : "holi");
+        if (m === "light" || m === "dark") r.setAttribute("data-mode", m);
+        if (a) r.style.setProperty("--accent", a);
+      } catch (e) {}
+    </script>
+    <title>Aangan — rent, receipts and reminders</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <style>
+      /* First paint matches the default Holi wallpaper, so there's no white or black flash before the CSS arrives. */
+      html { background: #fff6ef; } @media (prefers-color-scheme: dark) { html:not([data-mode="light"]) { background: #0c0610; } } html[data-mode="dark"] { background: #0c0610; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript><p style="font-family: system-ui; padding: 24px">Aangan needs JavaScript to run.</p></noscript>
+    <script type="module" src="/src/app/main.tsx"></script>
+  </body>
+</html>

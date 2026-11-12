@@ -1,0 +1,296 @@
+/* Aangan — Liquid Crystal (v5)
+   Soft, milky glass with prismatic rims and a gentle caustic sheen, in light and dark as equals.
+   Loaded after base.css and skin.css, so these rules win. Everything here is paint-only (gradients, masks, shadows):
+   no extra blur layers, no animated filters, so it costs the GPU about the same as the skin it replaces.
+
+   Tokens
+   --glint     a warm saffron highlight that catches the edge of glass next to the accent
+   --sheen     the soft light pooled in the top-left corner of every glass surface
+   --prism     the rim: accent → glint → cool violet, drawn as a 1px masked conic gradient */
+
+:root {
+  --accent: #0b8f8c;
+  --glint: #f4a640;
+  --violet: #8b7cf6;
+  --radius: 28px;
+  --radius-sm: 18px;
+  --crystal-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+@supports (color: light-dark(red, blue)) {
+  :root:root {
+    --glass: light-dark(rgb(255 255 255 / calc(.36 + var(--tint) * .44)), rgb(20 25 38 / calc(.44 + var(--tint) * .4)));
+    --glass-2: light-dark(rgb(250 252 255 / calc(.24 + var(--tint) * .44)), rgb(14 18 30 / calc(.36 + var(--tint) * .42)));
+    --glass-strong: light-dark(rgb(255 255 255 / calc(.6 + var(--tint) * .34)), rgb(34 40 58 / calc(.66 + var(--tint) * .3)));
+    --glass-bar: light-dark(rgb(252 253 255 / calc(.42 + var(--tint) * .44)), rgb(30 36 54 / calc(.42 + var(--tint) * .4)));
+    --glass-rim: light-dark(rgb(255 255 255 / 96%), rgb(210 235 255 / 34%));
+    --glass-rim-soft: light-dark(rgb(255 255 255 / 40%), rgb(255 255 255 / 5%));
+    --glass-spec: light-dark(rgb(255 255 255 / 100%), rgb(255 255 255 / 20%));
+    --glass-edge: light-dark(rgb(30 50 80 / 7%), rgb(190 220 255 / 12%));
+    --glass-shadow: 0 0 0 .5px var(--glass-edge), 0 1px 2px light-dark(rgb(20 40 70 / 5%), rgb(0 0 0 / 30%)), 0 14px 34px -18px light-dark(rgb(20 50 80 / 26%), rgb(0 0 0 / 75%));
+    --glass-shadow-lg: 0 0 0 .5px var(--glass-edge), 0 2px 4px light-dark(rgb(20 40 70 / 6%), rgb(0 0 0 / 35%)), 0 30px 64px -26px light-dark(rgb(20 50 80 / 34%), rgb(0 0 0 / 85%));
+    --glass-blur: calc(14px + var(--tint) * 16px);
+    --sheen: light-dark(rgb(255 255 255 / 62%), rgb(200 230 255 / 7%));
+    --sheen-2: light-dark(color-mix(in oklab, var(--accent) 7%, transparent), color-mix(in oklab, var(--accent) 12%, transparent));
+    --sheet-bg: light-dark(rgb(248 250 253 / calc(.9 + var(--tint) * .08)), rgb(14 18 30 / calc(.92 + var(--tint) * .06)));
+    --prism: conic-gradient(from 200deg at 50% 50%,
+      var(--glass-rim) 0deg, transparent 70deg,
+      color-mix(in oklab, var(--accent) 55%, transparent) 130deg,
+      color-mix(in oklab, var(--glint) 50%, transparent) 175deg, transparent 230deg,
+      color-mix(in oklab, var(--violet) 40%, transparent) 300deg, var(--glass-rim) 360deg);
+  }
+
+  /* ---------------------------------------------------------- crystal wallpapers
+     Each is a light and a dark variant. Light ones are pearly pastels; dark ones are deep, smoky jewel tones. */
+  html[data-wall="prism"]:root, html:not([data-wall]):root, .wall-opt[data-wall="prism"] { --wall-bg: light-dark(#eef3f6, #05070d);
+    --m1: light-dark(#bdeee6, #0b5e5c); --m2: light-dark(#dcd6ff, #2e2470); --m3: light-dark(#ffe1c2, #5a3410); --m4: light-dark(#cfe6ff, #0e3364); }
+  html[data-wall="opal"]:root, .wall-opt[data-wall="opal"] { --wall-bg: light-dark(#f4f2fa, #07060d);
+    --m1: light-dark(#e6dcff, #3a237a); --m2: light-dark(#d3f1ee, #0d5458); --m3: light-dark(#ffe0ec, #5f1c46); --m4: light-dark(#fff1cf, #4e3a10); }
+  html[data-wall="quartz"]:root, .wall-opt[data-wall="quartz"] { --wall-bg: light-dark(#fbf1f3, #0c0609);
+    --m1: light-dark(#ffd3df, #6d1c3e); --m2: light-dark(#f3dcff, #44206c); --m3: light-dark(#ffe6d4, #5c2a16); --m4: light-dark(#ffd9ec, #5a1648); }
+  html[data-wall="nebula"]:root, .wall-opt[data-wall="nebula"] { --wall-bg: light-dark(#eef0f8, #03040a);
+    --m1: light-dark(#cdd6ff, #1b2a7a); --m2: light-dark(#bff0ea, #08595a); --m3: light-dark(#e8d3ff, #4a1a78); --m4: light-dark(#ffd8c4, #6a2a12); }
+  html[data-wall="lagoon"]:root, .wall-opt[data-wall="lagoon"] { --wall-bg: light-dark(#edf7f8, #03090c);
+    --m1: light-dark(#b8ecf2, #075a6e); --m2: light-dark(#cdf2dc, #0b5236); --m3: light-dark(#d6e4ff, #13306e); --m4: light-dark(#fff0c9, #504010); }
+}
+
+/* --------------------------------------------------------------- atmosphere
+   A static prismatic light fall over the wallpaper. It never moves, so the glass above it is blurred once, not per frame. */
+.atmo::before { content: ""; position: absolute; inset: -10%; pointer-events: none;
+  background:
+    conic-gradient(from 210deg at 70% 0%, transparent 0deg, color-mix(in oklab, var(--m2) 60%, transparent) 30deg, transparent 60deg, color-mix(in oklab, var(--m1) 50%, transparent) 95deg, transparent 130deg),
+    radial-gradient(60% 40% at 50% 110%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 70%);
+  opacity: .55; }
+:root[data-mode="dark"] .atmo::before { opacity: .38; }
+@media (prefers-color-scheme: dark) { :root:not([data-mode="light"]) .atmo::before { opacity: .38; } }
+html[data-wall="plain"] .atmo::before { display: none; }
+
+/* --------------------------------------------------------------- glass surfaces */
+.card, .tile, .auth-card, .feature, .quick {
+  background:
+    radial-gradient(120% 70% at 0% 0%, var(--sheen), transparent 55%),
+    radial-gradient(90% 60% at 100% 100%, var(--sheen-2), transparent 60%),
+    linear-gradient(180deg, var(--glass), var(--glass-2));
+  box-shadow: inset 0 1px 0 var(--glass-spec), inset 0 -1px 0 var(--glass-rim-soft), var(--glass-shadow);
+}
+.card { border-radius: var(--radius); }
+.tile { border-radius: 24px; }
+
+/* the prismatic rim */
+.glass::before, .card::before, .tile::before, .sheet::before, .quick::before, .tabbar::before, .segmented::before, .month-switch::before,
+.chip::before, .lens-surface::before, .auth-card::before, .toast::before, .feature::before, .landing-nav::before, .crystal::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: var(--prism);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: calc(.6 + var(--tint) * .3);
+}
+.feature, .landing-nav { position: relative; }
+
+/* hover: the glass lifts a hair and the sheen brightens (desktop only; phones get the touch effect instead) */
+@media (hover: hover) and (pointer: fine) {
+  a.tile, .prop-card, .feature, .quick-item { transition: transform .5s var(--crystal-ease), box-shadow .4s var(--crystal-ease); }
+  a.tile:hover, .prop-card:hover, .feature:hover { transform: translateY(-2px); box-shadow: inset 0 1px 0 var(--glass-spec), inset 0 -1px 0 var(--glass-rim-soft), var(--glass-shadow-lg); }
+}
+
+/* --------------------------------------------------------------- bars */
+.tabbar, .landing-nav, .nav-glass-group, .nav-glass-btn, .composer, .topbar-inner {
+  background: linear-gradient(180deg, var(--glass-bar), color-mix(in oklab, var(--glass-bar) 80%, transparent));
+}
+.tabbar { box-shadow: inset 0 1px 0 var(--glass-spec), inset 0 -1px 0 var(--glass-rim-soft), var(--glass-shadow-lg); }
+
+/* --------------------------------------------------------------- buttons */
+.btn { border-radius: 999px; }
+.btn.primary, .btn.primary:hover {
+  color: #fff;
+  background:
+    radial-gradient(120% 90% at 20% 0%, rgb(255 255 255 / 38%), transparent 50%),
+    linear-gradient(135deg, color-mix(in oklab, var(--accent) 82%, white), var(--accent) 45%, color-mix(in oklab, var(--accent) 70%, #1b1550));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 55%), inset 0 -1px 0 rgb(0 0 0 / 14%), 0 0 0 .5px color-mix(in oklab, var(--accent) 55%, black),
+    0 10px 26px -12px color-mix(in oklab, var(--accent) 80%, transparent), 0 2px 10px -6px color-mix(in oklab, var(--glint) 45%, transparent);
+}
+.btn.primary::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: linear-gradient(140deg, rgb(255 255 255 / 80%), transparent 40%, color-mix(in oklab, var(--glint) 70%, transparent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: .8; }
+.chip.on { background: linear-gradient(135deg, color-mix(in oklab, var(--accent) 80%, white), var(--accent)); }
+
+/* --------------------------------------------------------------- headings & type */
+.display em, .hero h1 em, .crystal-text {
+  background: linear-gradient(100deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 45%, var(--violet)) 55%, color-mix(in oklab, var(--glint) 85%, var(--accent)) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.eyebrow { letter-spacing: .14em; }
+
+/* --------------------------------------------------------------- sheets & toasts */
+.sheet { border-radius: 32px 32px 0 0; }
+@media (min-width: 720px) { .sheet { border-radius: 32px; } }
+.toast { border-radius: 22px; }
+
+/* --------------------------------------------------------------- swatches & presets */
+.swatch { box-shadow: inset 0 2px 3px rgb(255 255 255 / 45%), inset 0 -2px 4px rgb(0 0 0 / 18%), 0 0 0 .5px rgb(0 0 0 / 12%); }
+.swatch.on { box-shadow: inset 0 2px 3px rgb(255 255 255 / 45%), 0 0 0 2px var(--bg), 0 0 0 4px currentColor; }
+.preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; margin-top: 10px; }
+.preset-opt { position: relative; display: grid; gap: 6px; justify-items: start; padding: 12px; border: 0; border-radius: 20px; text-align: left; color: var(--ink); overflow: hidden; background: var(--fill);
+  box-shadow: 0 0 0 .5px var(--glass-edge), inset 0 1px 0 var(--glass-spec); transition: transform var(--lift-off-d) var(--lift-off), box-shadow .25s; }
+.preset-opt > .wall-opt { position: absolute; inset: 0; aspect-ratio: auto; padding: 0; border-radius: inherit; box-shadow: none; pointer-events: none; }
+.preset-opt > .wall-opt::before { display: none; }
+.preset-opt > :not(.wall-opt) { position: relative; }
+.preset-opt .preset-dot { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, color-mix(in oklab, var(--p) 40%, white), var(--p));
+  box-shadow: inset 0 1px 1px rgb(255 255 255 / 60%), 0 4px 10px -4px var(--p); display: grid; place-items: center; font-size: 13px; }
+.preset-opt strong { white-space: nowrap; font-size: 13px; font-weight: 650; letter-spacing: -.01em; padding: 2px 8px; border-radius: 999px; background: var(--glass-strong); }
+.preset-opt.on { box-shadow: 0 0 0 2.5px var(--accent); }
+.preset-opt.is-pressed { transform: scale(.96); transition: transform var(--lift-on-d) var(--lift-on); }
+.preset-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* ====================================================================== landing (v5) */
+.landing { max-width: 1200px; padding: 0 20px; }
+.landing-nav { padding: 6px 6px 6px 16px; top: 12px; }
+.landing-links { display: none; gap: 4px; }
+@media (max-width: 480px) {
+  .landing-nav { padding-left: 12px; }
+  .landing-nav .icon-btn { display: none; }
+  .landing-nav .btn { min-height: 36px; padding: 6px 13px; font-size: 14px; }
+  .landing-nav .brand { font-size: 18px; gap: 8px; }
+}
+.landing-links a { padding: 8px 14px; border-radius: 999px; font-size: 14.5px; font-weight: 550; color: var(--ink-2); transition: background .2s, color .2s; }
+.landing-links a:hover { background: var(--fill); color: var(--ink); }
+@media (min-width: 860px) { .landing-links { display: flex; } }
+
+.hero { padding: 56px 0 40px; gap: 48px; }
+@media (min-width: 1000px) { .hero { grid-template-columns: 1.05fr 1fr; padding-top: 72px; } }
+.hero-copy { gap: 22px; }
+.hero-badge { justify-self: start; display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 8px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.hero-badge b { display: inline-grid; place-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #fff;
+  background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 50%, var(--violet))); }
+.hero h1 { font-size: clamp(2.6rem, 5.8vw, 4.6rem); line-height: .98; letter-spacing: -0.05em; text-wrap: balance; }
+.hero-copy > p.lede { font-size: clamp(1.05rem, 1.6vw, 1.2rem); color: var(--ink-2); max-width: 540px; text-wrap: pretty; }
+.hero-trust { display: flex; flex-wrap: wrap; gap: 10px 22px; padding-top: 6px; }
+.hero-trust div { display: grid; gap: 0; }
+.hero-trust strong { font-size: 1.35rem; font-weight: 750; letter-spacing: -0.03em; }
+.hero-trust span { font-size: 12.5px; color: var(--muted); }
+
+/* the crystal stage: the cards tilt gently with the pointer (desktop) */
+.hero-art { min-height: 500px; perspective: 1400px; }
+.hero-stage { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .8s var(--crystal-ease);
+  transform: rotateX(calc(var(--ty, 0) * -6deg)) rotateY(calc(var(--tx, 0) * 8deg)); }
+.crystal-orb { position: absolute; left: 50%; top: 46%; width: min(460px, 92%); aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(circle at 32% 28%, rgb(255 255 255 / 85%), transparent 22%),
+    radial-gradient(circle at 70% 75%, color-mix(in oklab, var(--glint) 40%, transparent), transparent 45%),
+    conic-gradient(from 120deg, color-mix(in oklab, var(--accent) 45%, transparent), color-mix(in oklab, var(--violet) 40%, transparent), color-mix(in oklab, var(--m2) 80%, transparent), color-mix(in oklab, var(--accent) 45%, transparent));
+  opacity: .55; filter: saturate(1.2); -webkit-mask: radial-gradient(circle, #000 55%, transparent 71%); mask: radial-gradient(circle, #000 55%, transparent 71%); }
+:root[data-mode="dark"] .crystal-orb { opacity: .42; }
+@media (prefers-color-scheme: dark) { :root:not([data-mode="light"]) .crystal-orb { opacity: .42; } }
+.pass.demo { transform: translateZ(40px) rotate(-5deg); margin: 30px 0 0 2%; }
+.hero-receipt { top: 120px; transform: translateZ(10px); }
+.hero-ring { transform: translateZ(70px); bottom: 6px; }
+.float-chip { position: absolute; z-index: 4; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px 9px 10px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  background: var(--glass-bar); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%); backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  box-shadow: inset 0 1px 0 var(--glass-spec), var(--glass-shadow-lg); }
+.float-chip svg { width: 26px; height: 26px; padding: 5px; border-radius: 50%; color: #fff; }
+.float-chip.wa { right: -2%; bottom: 150px; transform: translateZ(90px); animation: float-a 7s .4s ease-in-out infinite; }
+.float-chip.wa svg { background: linear-gradient(180deg, #5fe08a, #1fae55); }
+.float-chip.ok { right: -2%; top: 70px; transform: translateZ(60px); animation: float-b 9s ease-in-out infinite; }
+.float-chip.ok svg { background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 50%, var(--violet))); }
+@media (max-width: 560px) { .hero-art { min-height: 440px; } .float-chip.ok { top: 4px; right: 0; } .float-chip.wa { bottom: 96px; right: 0; } }
+
+/* use-case marquee */
+.marquee { position: relative; overflow: hidden; padding: 14px 0; margin: 8px 0 24px; border-radius: 999px;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+.marquee-track { display: flex; gap: 12px; width: max-content; animation: marquee 38s linear infinite; }
+.marquee-track span { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; white-space: nowrap; color: var(--ink-2);
+  background: var(--glass); box-shadow: inset 0 1px 0 var(--glass-spec), 0 0 0 .5px var(--glass-edge); }
+.marquee-track span::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--glint)); }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+@keyframes marquee { to { transform: translateX(-50%); } }
+
+/* section heads */
+.l-section { padding: 48px 0 24px; content-visibility: auto; contain-intrinsic-size: auto 720px; }
+.l-head { display: grid; gap: 10px; max-width: 680px; margin-bottom: 26px; }
+.l-head h2 { display: block; font-size: clamp(2rem, 4.4vw, 3.2rem); font-weight: 800; line-height: 1.02; letter-spacing: -0.045em; text-wrap: balance; }
+.l-head p { color: var(--muted); font-size: 1.05rem; text-wrap: pretty; }
+
+/* bento features */
+.features { padding: 0; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; }
+.feature { grid-column: span 6; padding: 26px; gap: 12px; border-radius: 30px; overflow: hidden; }
+@media (min-width: 720px) { .features > .feature:nth-child(n) { grid-column: span 3; transform: none; } }
+@media (min-width: 1000px) {
+  /* 4 + 2 / 2 + 2 + 2 / 6: a full row of glass on every line */
+  .features > .feature:nth-child(n) { grid-column: span 2; transform: none; }
+  .features > .feature.wide:nth-child(n) { grid-column: span 4; }
+  .features > .feature:last-child { grid-column: span 6; }
+}
+.feature > svg { width: 48px; height: 48px; padding: 12px; border-radius: 16px;
+  background: linear-gradient(135deg, var(--fc1, #4fd1c5), var(--fc2, #0b8f8c)); box-shadow: inset 0 1px 1px rgb(255 255 255 / 55%), 0 10px 22px -12px var(--fc2, #0b8f8c); }
+.feature:nth-child(1) { --fc1: #5ee0d2; --fc2: #0b8f8c; }
+.feature:nth-child(2) { --fc1: #ffcf7a; --fc2: #f08a24; }
+.feature:nth-child(3) { --fc1: #7be39a; --fc2: #1fae55; }
+.feature:nth-child(4) { --fc1: #ffb28a; --fc2: #e2503f; }
+.feature:nth-child(5) { --fc1: #a7b4ff; --fc2: #5b5bd6; }
+.feature:nth-child(6) { --fc1: #e9a8f5; --fc2: #b04fd0; }
+.feature:nth-child(n) > svg { background: linear-gradient(135deg, var(--fc1), var(--fc2)); }
+.feature h3 { font-size: 1.32rem; }
+.feature p { color: var(--muted); font-size: 15px; }
+.feature .feature-glow { position: absolute; right: -60px; bottom: -60px; width: 200px; height: 200px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--fc2) 22%, transparent), transparent); }
+
+/* steps */
+.steps { display: grid; gap: 14px; counter-reset: step; }
+@media (min-width: 860px) { .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.step { padding: 24px; display: grid; gap: 10px; align-content: start; }
+.step-n { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 15px; color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 30%, transparent); }
+.step h3 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em; }
+.step p { color: var(--muted); font-size: 14.5px; }
+
+/* call to action */
+.cta-band { position: relative; overflow: hidden; margin: 40px 0 20px; padding: clamp(28px, 6vw, 56px); border-radius: 36px; display: grid; gap: 16px; justify-items: start; color: #fff;
+  background:
+    radial-gradient(80% 120% at 0% 0%, rgb(255 255 255 / 28%), transparent 50%),
+    radial-gradient(60% 90% at 100% 100%, color-mix(in oklab, var(--glint) 55%, transparent), transparent 60%),
+    linear-gradient(135deg, color-mix(in oklab, var(--accent) 85%, white), var(--accent) 45%, color-mix(in oklab, var(--accent) 45%, #1b1550));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 45%), 0 30px 70px -30px color-mix(in oklab, var(--accent) 70%, transparent); content-visibility: auto; contain-intrinsic-size: auto 320px; }
+.cta-band::after { content: ""; position: absolute; right: -40px; top: -40px; width: 280px; height: 280px; opacity: .14; pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M20 2 38 20 20 38 2 20Z' fill='none' stroke='white' stroke-width='1.2'/%3E%3Ccircle cx='20' cy='20' r='2' fill='white'/%3E%3C/svg%3E"); }
+.cta-band h2 { display: block; font-size: clamp(1.9rem, 4.4vw, 3rem); font-weight: 800; letter-spacing: -0.045em; line-height: 1.02; max-width: 640px; }
+.cta-band p { max-width: 520px; color: rgb(255 255 255 / 86%); }
+.cta-band .btn { color: var(--accent); background: #fff; box-shadow: inset 0 -1px 0 rgb(0 0 0 / 8%), 0 10px 24px -12px rgb(0 0 0 / 40%); }
+.cta-band .btn.ghost { color: #fff; background: rgb(255 255 255 / 16%); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 40%); }
+
+.landing-foot { justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.landing-foot .row { gap: 8px; }
+
+/* scroll reveal (added by the landing page; reduced motion shows everything at once) */
+.reveal { opacity: 0; transform: translateY(22px) scale(.99); transition: opacity .9s var(--crystal-ease), transform .9s var(--crystal-ease); transition-delay: var(--d, 0s); }
+.reveal.in { opacity: 1; transform: none; }
+@media (hover: hover) and (pointer: fine) { .feature.reveal.in:hover, .step.reveal.in:hover { transform: translateY(-2px); transition-delay: 0s; } }
+
+/* ====================================================================== speed pass
+   Blur cost grows with the radius and the area, so phones get a smaller radius and lighter saturation; the look
+   stays the same at arm's length and scrolling holds 60fps on mid-range Android. */
+@media (hover: none), (max-width: 999px) {
+  :root:root { --glass-blur: calc(10px + var(--tint) * 10px); }
+  .glass, .card, .tile, .sheet, .quick, .tabbar, .sidebar, .toast, .segmented, .month-switch, .chip, .lens-surface, .auth-card, .landing-nav, .tab-plus, .nav-glass-group, .nav-glass-btn, .composer, .topbar-inner, .float-chip {
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%); backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  }
+  /* Feature cards and steps sit over a still wallpaper; a translucent fill without blur reads the same and is free. */
+  .feature, .step { -webkit-backdrop-filter: none; backdrop-filter: none; background: radial-gradient(120% 70% at 0% 0%, var(--sheen), transparent 55%), var(--glass-strong); }
+  .hero-stage { transform: none; }
+  .pass.demo, .hero-receipt, .hero-ring, .float-chip { animation-duration: 0s; animation: none; }
+}
+/* Pause decorative loops when they're off screen or the tab is hidden (class set by the landing page). */
+.landing.paused .marquee-track, .landing.paused .pass.demo, .landing.paused .hero-receipt, .landing.paused .hero-ring, .landing.paused .float-chip { animation-play-state: paused; }
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track, .float-chip, .pass.demo, .hero-receipt, .hero-ring { animation: none !important; }
+  .hero-stage { transform: none !important; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
+:root[data-motion="reduced"] :is(.marquee-track, .float-chip, .pass.demo, .hero-receipt, .hero-ring) { animation: none !important; }
+:root[data-motion="reduced"] .hero-stage { transform: none !important; }
+:root[data-motion="reduced"] .reveal { opacity: 1; transform: none; transition: none; }
+
+@media (prefers-reduced-transparency: reduce) {
+  .card, .tile, .auth-card, .feature, .quick { background: var(--glass-strong); }
+  .atmo::before, .crystal-orb { display: none; }
+}

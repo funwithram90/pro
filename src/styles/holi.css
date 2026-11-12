@@ -1,0 +1,121 @@
+/* Aangan — Holi (v6)
+   The default look: gulal colours (magenta, saffron, leaf green, indigo) over the Liquid Crystal glass, with
+   finished, crisp-edged header and footer bars and one soft "butter" curve for motion across the app.
+   Loaded last, so these rules win. */
+
+:root {
+  --accent: #d62a7b;
+  --glint: #ff9f1c;
+  --violet: #6a4cf0;
+  --holi-pink: #e8317f;
+  --holi-saffron: #ff9f1c;
+  --holi-green: #1fb36b;
+  --holi-indigo: #5b46e0;
+  --holi-teal: #12aebf;
+  /* the gulal ribbon: used as a thin finishing line on bars and as a highlight */
+  --ribbon: linear-gradient(90deg, var(--holi-pink), var(--holi-saffron) 26%, var(--holi-green) 50%, var(--holi-teal) 70%, var(--holi-indigo) 88%, var(--holi-pink));
+  /* butter: long, soft deceleration with no overshoot */
+  --butter: cubic-bezier(.22, 1, .36, 1);
+  --butter-d: .42s;
+}
+
+@supports (color: light-dark(red, blue)) {
+  html[data-wall="holi"]:root, .wall-opt[data-wall="holi"] { --wall-bg: light-dark(#fff6ef, #0c0610);
+    --m1: light-dark(#ffc4de, #6e1240); --m2: light-dark(#ffe2a6, #5a3606); --m3: light-dark(#c6f0d6, #0a4a32); --m4: light-dark(#d8d0ff, #2a1d78); }
+}
+
+/* ---------------------------------------------------------------- butter smoothness */
+html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+:root[data-motion="reduced"] { scroll-behavior: auto; }
+
+.btn, .chip, .icon-btn, .link, .side-link, .landing-links a, .foot-links a, .quick-more a, .wall-opt, .swatch, .toggle {
+  transition: background-color .3s var(--butter), color .3s var(--butter), box-shadow .4s var(--butter), opacity .3s var(--butter),
+    transform var(--butter-d) var(--butter), filter .3s var(--butter);
+}
+.btn:active, .chip:active, .icon-btn:active { transform: scale(.97); transition-duration: .12s; }
+.page > * { animation-duration: .5s; animation-timing-function: var(--butter); }
+.reveal { transition-duration: 1s; transition-timing-function: var(--butter); }
+.tab, .tab-label, .tab-icon { transition-timing-function: var(--butter); }
+@media (hover: hover) and (pointer: fine) {
+  a.tile, .prop-card, .feature, .quick-item { transition: transform .6s var(--butter), box-shadow .5s var(--butter); }
+}
+
+/* ---------------------------------------------------------------- header (app)
+   Before: a masked blur that faded into the page and left a smeared, unfinished edge.
+   Now: transparent at the top; once you scroll, a full-width frosted bar with a crisp hairline and a gulal ribbon. */
+.topbar { padding: 6px 12px 8px; padding-top: max(6px, env(safe-area-inset-top)); isolation: isolate; }
+.topbar::before { inset: 0; -webkit-mask: none; mask: none;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--bg) 78%, transparent), color-mix(in oklab, var(--bg) 62%, transparent));
+  -webkit-backdrop-filter: blur(22px) saturate(170%); backdrop-filter: blur(22px) saturate(170%);
+  box-shadow: inset 0 -.5px 0 var(--glass-edge), 0 8px 24px -18px rgb(30 10 40 / 35%);
+  opacity: 0; transition: opacity .45s var(--butter); }
+.topbar::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; z-index: -1; pointer-events: none;
+  background: var(--ribbon); opacity: 0; transform: scaleX(.6); transition: opacity .5s var(--butter), transform .7s var(--butter); }
+.is-scrolled .topbar::before { opacity: 1; }
+.is-scrolled .topbar::after { opacity: .75; transform: none; }
+.nav-brand { transition: opacity .35s var(--butter), transform .5s var(--butter); }
+.nav-brand span { background: linear-gradient(100deg, var(--ink) 40%, var(--accent)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.nav-title { transition: background-color .35s var(--butter), box-shadow .35s var(--butter); }
+/* the bar is already glass once scrolled, so the title drops its own pill instead of stacking two blurs */
+.is-scrolled .nav-title { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.nav-glass-btn { transition: transform var(--butter-d) var(--butter), background-color .3s var(--butter); }
+.nav-glass-btn:active { transform: scale(.92); transition-duration: .12s; }
+.nav-glass-btn .badge, .tab-icon .badge { background: linear-gradient(135deg, var(--holi-pink), var(--holi-saffron)); color: #fff; }
+
+/* ---------------------------------------------------------------- footer (tab bar)
+   The soft fade under the bar is now plain colour, no masked blur, so its edge is clean on every wallpaper. */
+.tabdock::before { -webkit-backdrop-filter: none; backdrop-filter: none; -webkit-mask: none; mask: none;
+  background: linear-gradient(0deg, color-mix(in oklab, var(--bg) 92%, transparent) 0%, color-mix(in oklab, var(--bg) 60%, transparent) 45%, transparent 100%); }
+.tabbar { transition: height .55s var(--butter), max-width .55s var(--butter); }
+.tabbar::before { background: conic-gradient(from 180deg, var(--holi-pink), var(--holi-saffron), var(--holi-green), var(--holi-teal), var(--holi-indigo), var(--holi-pink)); opacity: .5; }
+.tab { color: var(--ink-2, var(--ink)); }
+.tab.on, .tab.active { color: var(--accent); }
+.tab-lens { background: color-mix(in oklab, var(--accent) 13%, transparent); box-shadow: inset 0 0 0 .5px color-mix(in oklab, var(--accent) 22%, transparent), inset 0 1px 0 rgb(255 255 255 / 40%); }
+:root[data-mode="dark"] .tab-lens { background: color-mix(in oklab, var(--accent) 24%, transparent); box-shadow: inset 0 .5px 0 rgb(255 255 255 / 18%); }
+@media (prefers-color-scheme: dark) { :root:not([data-mode="light"]) .tab-lens { background: color-mix(in oklab, var(--accent) 24%, transparent); box-shadow: inset 0 .5px 0 rgb(255 255 255 / 18%); } }
+.tab-plus { color: #fff;
+  background:
+    radial-gradient(110% 80% at 30% 10%, rgb(255 255 255 / 40%), transparent 50%),
+    conic-gradient(from 210deg, var(--holi-pink), var(--holi-saffron), var(--holi-green), var(--holi-indigo), var(--holi-pink));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 60%), inset 0 -1px 0 rgb(0 0 0 / 15%), 0 12px 28px -12px color-mix(in oklab, var(--holi-pink) 70%, transparent);
+  transition: transform .45s var(--butter), width .55s var(--butter), height .55s var(--butter); }
+.tab-plus:active { transform: scale(.92); transition-duration: .12s; }
+.tabdock.min .tab-label { transition: opacity .25s var(--butter), transform .4s var(--butter); }
+
+/* ---------------------------------------------------------------- sidebar (desktop header) */
+@media (min-width: 1000px) {
+  .sidebar::after { content: ""; position: absolute; left: 18px; right: 18px; top: 0; height: 3px; border-radius: 0 0 3px 3px; background: var(--ribbon); opacity: .8; pointer-events: none; }
+  .side-link { transition: background-color .3s var(--butter), color .3s var(--butter); }
+  .side-lens { background: color-mix(in oklab, var(--accent) 12%, transparent); }
+}
+
+/* ---------------------------------------------------------------- landing header & footer */
+.landing-nav { transition: box-shadow .4s var(--butter), background-color .4s var(--butter); }
+.landing-nav::after { content: ""; position: absolute; left: 22px; right: 22px; bottom: 0; height: 2px; border-radius: 2px; background: var(--ribbon); opacity: .55; pointer-events: none; }
+.landing-foot { position: relative; display: grid; grid-template-columns: 1fr; gap: 18px; margin: 12px 0 calc(24px + env(safe-area-inset-bottom)); padding: 26px 24px 22px;
+  border-top: 0; border-radius: 30px; overflow: hidden; }
+.landing-foot::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--ribbon); pointer-events: none; }
+.foot-brand { display: grid; gap: 6px; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 4px; margin-left: -10px; }
+.foot-links a { padding: 7px 12px; border-radius: 999px; font-size: 14.5px; font-weight: 550; color: var(--ink-2, var(--ink)); }
+.foot-links a:hover { background: var(--fill); color: var(--ink); }
+.foot-note { padding-top: 12px; border-top: .5px solid var(--glass-edge); }
+@media (min-width: 760px) {
+  .landing-foot { grid-template-columns: 1fr auto; align-items: center; padding: 28px 32px 22px; }
+  .foot-links { margin-left: 0; justify-content: flex-end; }
+  .foot-note { grid-column: 1 / -1; }
+}
+
+/* ---------------------------------------------------------------- holi accents */
+.display em, .hero h1 em, .crystal-text {
+  background: linear-gradient(100deg, var(--holi-pink), var(--holi-saffron) 45%, var(--holi-indigo) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.hero-badge b { background: linear-gradient(135deg, var(--holi-pink), var(--holi-saffron)); }
+.marquee-track span::before { background: var(--ribbon); }
+
+@media (prefers-reduced-transparency: reduce) {
+  .topbar::before { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media print { .topbar::after, .landing-nav::after { display: none; } }
