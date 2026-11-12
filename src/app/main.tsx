@@ -8,6 +8,8 @@ import "../styles/base.css";
 import "../styles/skin.css";
 import "../styles/crystal.css";
 import "../styles/holi.css";
+import "@fontsource-variable/onest";
+import "../styles/premium.css";
 import { applyTheme } from "../theme/theme";
 import { registerServiceWorker } from "../services/pwa";
 import { installTouchEffect } from "../interaction/touch";
@@ -77,7 +79,7 @@ function Protected() {
 }
 
 const TITLES: [RegExp, string][] = [
-  [/^\/app\/?$/, "Home"], [/^\/app\/wallet/, "Wallet"], [/^\/app\/payments\/./, "Receipt"], [/^\/app\/payments/, "Payments"],
+  [/^\/app\/?$/, "Overview"], [/^\/app\/wallet/, "Wallet"], [/^\/app\/payments\/./, "Receipt"], [/^\/app\/payments/, "Payments"],
   [/^\/app\/tasks/, "Tasks"], [/^\/app\/properties/, "Properties"], [/^\/app\/tenants/, "Tenants"], [/^\/app\/reminders/, "Reminders"],
   [/^\/app\/billing/, "Billing"], [/^\/app\/reconcile/, "Reconcile"], [/^\/app\/documents/, "Documents"], [/^\/app\/reports/, "Reports"],
   [/^\/app\/assistant/, "Assistant"], [/^\/app\/team/, "Team"], [/^\/app\/settings/, "Settings"], [/^\/login/, "Sign in"],
