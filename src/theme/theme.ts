@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 export type Mode = "system" | "light" | "dark" | "schedule";
 // Telegram-style accent themes. The first is the default; stored accents from older versions keep working.
 export const ACCENTS = [
+  { name: "Aangan blue", value: "#3575e8" },
   { name: "Gulal (Holi magenta)", value: "#d62a7b" },
   { name: "Mor (peacock)", value: "#0b8f8c" },
   { name: "Telegram blue", value: "#3390ec" },
@@ -41,7 +42,7 @@ export const WALLPAPERS = [
   { id: "midnight", name: "Midnight" },
 ] as const;
 export type Wall = (typeof WALLPAPERS)[number]["id"];
-export const WALL_DEFAULT: Wall = "holi";
+export const WALL_DEFAULT: Wall = "plain";
 
 /** Telegram-style chat themes: one tap sets the accent, wallpaper and colour mode together. */
 export type Preset = { id: string; name: string; emoji: string; accent: string; wall: Wall; mode: Mode };

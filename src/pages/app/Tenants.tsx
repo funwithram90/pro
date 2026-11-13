@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
-import { Archive, ArrowLeft, Copy, ExternalLink, Link2, Link2Off, Mail, MessageCircle, Pencil, Phone, RefreshCw, Users } from "lucide-react";
+import { Archive, ArrowLeft, Copy, ExternalLink, Link2, Link2Off, Mail, MessageCircle, Pencil, Phone, RefreshCw, Search, Plus, ArrowUpRight, Users } from "lucide-react";
 import { useCanWrite, useData, useLive } from "../../state/data";
 import { useNotify } from "../../state/notify";
 import { supabase, errorMessage } from "../../services/supabase";
 import { currentPeriod, dateLabel, initials, METHOD_LABEL, tone, money, periodLabel, waLink } from "../../utils/format";
 import { rentRows } from "../../domain/rent";
 import { reminderText } from "../../domain/reminders";
+import { tenantRentSummary } from "../../domain/tenant-summary";
 import type { Lease, Tenant } from "../../domain/types";
 import { portalUrl } from "../../domain/portal";
 import { Empty, Pill, SheetIf } from "../../components/ui/ui";
@@ -15,35 +16,20 @@ import type { ShellCtx } from "../../components/layout/shell";
 
 export function TenantsPage() {
   const live = useLive();
+  const canWrite = useCanWrite();
   const { openAdd } = useOutletContext<ShellCtx>();
   const rows = useMemo(() => rentRows(currentPeriod(), live), [live]);
   const [q, setQ] = useState("");
-  const list = live.tenants.filter((t) => t.name.toLowerCase().includes(q.toLowerCase()));
-  return (
-    <div className="page">
-      <div className="page-head"><h1 className="display">Tenants</h1><button className="btn primary small" onClick={() => openAdd("tenant")}>Add tenant</button></div>
-      {live.tenants.length === 0 ? <div className="card"><Empty icon={<Users />} title="No tenants yet" /></div> : (
-        <div className="card">
-          <input className="search" placeholder="Search tenants" value={q} onChange={(e) => setQ(e.target.value)} />
-          <ul className="list">
-            {list.map((t) => {
-              const r = rows.find((x) => x.tenant.id === t.id);
-              return (
-                <li key={t.id}>
-                  <Link to={`/app/tenants/${t.id}`} className="list-row">
-                    <div className="avatar" data-tone={tone(t.name)}>{initials(t.name)}</div>
-                    <div className="grow"><strong>{t.name}</strong><small className="muted">{r ? `${r.property.name} · ${r.unit.label}` : "No active lease"}</small></div>
-                    {r && <span className="mono hide-sm">{money(r.rent)}</span>}
-                    {r && <Pill status={r.status} />}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
+  const [status, setStatus] = useState("all");
+  const entries = live.tenants.map((tenant) => ({ tenant, ...tenantRentSummary(tenant.id, rows) }));
+  const list = entries.filter((entry) => {
+    const searchText = [entry.tenant.name, entry.tenant.email, ...entry.leases.map((row) => `${row.property.name} ${row.unit.label}`)].join(" ").toLowerCase();
+    return searchText.includes(q.toLowerCase()) && (status === "all" || (status === "paid" ? entry.status === "paid" : entry.status && entry.status !== "paid"));
+  });
+  return <div className="page"><div className="page-head"><div><span className="welcome-label">PEOPLE MAKE A PLACE</span><h1 className="display">Your tenants<span className="greeting-dot">.</span></h1><p className="page-sub">Good relationships start with a little clarity.</p></div>{canWrite && <button className="btn primary" onClick={() => openAdd("tenant")}><Plus size={16}/> Add tenant</button>}</div>
+    <div className="card tenant-directory"><div className="portfolio-toolbar"><div className="property-filters">{[["all","All tenants"],["outstanding","Outstanding"],["paid","Paid up"]].map(([v,l]) => <button key={v} className={status === v ? "active" : ""} onClick={() => setStatus(v)} aria-pressed={status === v}>{l}{v === "all" && <span>{live.tenants.length}</span>}</button>)}</div><label className="property-search"><Search size={15}/><input aria-label="Search tenants" placeholder="Find a tenant…" value={q} onChange={(e) => setQ(e.target.value)}/></label></div>
+    {!list.length ? <Empty icon={<Users/>} title={live.tenants.length ? "No tenants in this view" : "A warm welcome starts here"}>{live.tenants.length ? "Try another name or filter." : "Add your first tenant and their lease."}</Empty> : <><div className="directory-heading"><span>Tenant</span><span>Property & unit</span><span>Monthly rent</span><span>Rent status</span><span/></div>{list.map((entry) => {const t = entry.tenant; const places = [...new Set(entry.leases.map((row) => row.property.name))]; return <Link key={t.id} to={`/app/tenants/${t.id}`} className="directory-row"><div className="tenant-cell"><div className="avatar" data-tone={tone(t.name)}>{initials(t.name)}</div><div><strong>{t.name}</strong><small>{t.email || t.phone_whatsapp || "Contact not added"}</small></div></div><div className="directory-property"><strong>{places.join(", ") || "No tenancy this month"}</strong><small>{entry.leases.map((row) => row.unit.label).join(", ") || "—"}</small></div><strong className="directory-rent">{entry.leases.length ? money(entry.rent) : "—"}</strong><div>{entry.status ? <Pill status={entry.status}/> : <span className="pill tenancy-status">No tenancy this month</span>}</div><ArrowUpRight size={16}/></Link>})}</>}
+    </div></div>;
 }
 
 export function TenantDetailPage() {
@@ -55,13 +41,16 @@ export function TenantDetailPage() {
   const [editTenant, setEditTenant] = useState(false);
   const [editLease, setEditLease] = useState<Lease | null>(null);
   const [record, setRecord] = useState<string | null>(null);
+  const [actionLease, setActionLease] = useState("");
+  const canWrite = useCanWrite();
   const t = d.tenants.find((x) => x.id === id);
   const rows = useMemo(() => rentRows(currentPeriod(), live), [live]);
   if (!t) return <div className="page"><Empty title="Tenant not found"><Link to="/app/tenants">Back</Link></Empty></div>;
   const leases = d.leases.filter((l) => l.tenant_id === t.id);
   const leaseIds = new Set(leases.map((l) => l.id));
   const payments = d.payments.filter((p) => leaseIds.has(p.lease_id));
-  const current = rows.find((r) => r.tenant.id === t.id);
+  const current = tenantRentSummary(t.id, rows);
+  const selected = current.leases.length === 1 ? current.leases[0] : current.leases.find((row) => row.lease.id === actionLease);
   const totalPaid = payments.reduce((s, p) => s + Number(p.amount), 0);
 
   async function archive() {
@@ -93,16 +82,19 @@ export function TenantDetailPage() {
             {t.archived_at && <span>Archived</span>}
           </div>
         </div>
-        {current && <Pill status={current.status} />}
+        {current.status && <Pill status={current.status} />}
       </div>
 
-      {current && (
+      {current.leases.length > 0 && (
         <div className="tiles three">
           <div className="tile"><span className="eyebrow">This month</span><span className="mono big">{money(current.paid)} / {money(current.rent)}</span></div>
           <div className="tile"><span className="eyebrow">Balance</span><span className="mono big">{money(current.balance)}</span></div>
-          <div className="tile row gap-sm center">
-            <a className="btn ghost small" href={waLink(t.phone_whatsapp, reminderText(current, d.workspace!))} target="_blank" rel="noreferrer"><MessageCircle size={14} /> Remind</a>
-            <button className="btn primary small" onClick={() => setRecord(current.lease.id)}>Record payment</button>
+          <div className="tile stack-sm">
+            {current.leases.length > 1 && <label className="field"><span className="field-label">Tenancy for actions</span><select value={selected?.lease.id ?? ""} onChange={(e) => setActionLease(e.target.value)}><option value="">Choose a tenancy</option>{current.leases.map((row) => <option key={row.lease.id} value={row.lease.id}>{row.property.name} · {row.unit.label} — {money(row.balance)} due</option>)}</select></label>}
+            <div className="row gap-sm wrap">
+              {selected && selected.status !== "paid" && <a className="btn ghost small" href={waLink(t.phone_whatsapp, reminderText(selected, d.workspace!))} target="_blank" rel="noreferrer"><MessageCircle size={14} /> Remind</a>}
+              {canWrite && <button className="btn primary small" disabled={!selected} onClick={() => selected && setRecord(selected.lease.id)}>{selected?.status === "paid" ? "Record additional payment" : "Record payment"}</button>}
+            </div>
           </div>
         </div>
       )}

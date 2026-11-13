@@ -1,221 +1,34 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import {
-  ArrowRight, BadgeCheck, BellRing, MessageCircle, Moon, MousePointerClick, QrCode, ReceiptText, ShieldCheck, Smartphone, Sun, Wallet,
-} from "lucide-react";
+import { ArrowRight, ArrowUpRight, Building2, Check, ChevronRight, CreditCard, Home, MessageCircle, ReceiptText, ShieldCheck, Sparkles, Users, Wallet } from "lucide-react";
 import { demoMode, errorMessage, signInSample } from "../../services/supabase";
-import { isDarkNow, motionReduced, toggleNight } from "../../theme/theme";
 import { useAuth } from "../../state/auth";
-import { Jaali, Logo, Ring } from "../../components/ui/ui";
-import { ReceiptPaper } from "../../components/documents/receipt";
+import { Logo } from "../../components/ui/ui";
 
-// Preview content for the marketing page only. Never stored, clearly labelled.
-const PREVIEW_RECEIPT = {
-  receipt_no: "ANG-00042", amount: 18500, period: "2026-11", method: "upi", paid_at: "2026-11-04T10:30:00",
-  tenant: "Kavya Iyer", property: "Gulmohar Court", unit: "Flat 3A", landlord: "Your name here", currency: "INR",
-  reference: "UPI 4410…8821", verifyUrl: "https://aangan.example/r/preview",
-};
-
-const FEATURES: [typeof Wallet, string, string, boolean?][] = [
-  [Wallet, "A wallet of passes", "Every tenancy is a pass with rent, due date and status. Flip it for recent payments and your UPI QR.", true],
-  [ReceiptText, "Receipts in one tap", "Sequential receipt numbers, a printed-paper look, and a QR that anyone can scan to verify."],
-  [BellRing, "Reminders you review", "Aangan drafts a polite message and opens it in WhatsApp. You read it and press send yourself; nothing goes out automatically."],
-  [QrCode, "Made for India", "₹ and lakh/crore formatting, UPI IDs, WhatsApp first. Other currencies are a setting."],
-  [ShieldCheck, "Honest numbers", "Recorded payments are never shown as a bank balance. Rent status is calculated, never typed in."],
-  [Smartphone, "A portal for tenants", "Send each tenant a private link to check dues, pay by UPI, download receipts and report repairs. No app or account needed."],
+const FEATURES = [
+  { icon: Wallet, title: "Rent, without the guesswork.", text: "See what’s paid, what’s pending, and what needs a friendly nudge. One clear view of your rental income.", label: "RENT & PAYMENTS" },
+  { icon: Users, title: "A better place for your people.", text: "Keep tenants, lease details, and payment history together. Share a private portal so everyone stays in the loop.", label: "TENANTS & LEASES" },
+  { icon: ReceiptText, title: "A little less paperwork.", text: "Create numbered receipts when you record rent. Share them, print them, and verify them with a simple QR code.", label: "RECEIPTS & RECORDS" },
 ];
-
-const STEPS: [string, string][] = [
-  ["Add your properties", "Flats, PG rooms or shops: add units and tenants in a minute, or import from a sheet."],
-  ["Record and receipt", "Log a UPI or cash payment and a numbered, QR-verified receipt is ready to share."],
-  ["Remind, kindly", "See who's overdue, review a polite draft and send it from your own WhatsApp."],
-];
-
-const USES = ["Flats", "PGs & hostels", "Small shops", "Co-living", "Student rooms", "Family homes", "Offices", "Godowns"];
-
-/** Adds `.in` to `.reveal` elements as they scroll into view. */
-function useReveal(root: RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    const el = root.current;
-    if (!el) return;
-    const items = el.querySelectorAll<HTMLElement>(".reveal");
-    if (motionReduced() || !("IntersectionObserver" in window)) { items.forEach((i) => i.classList.add("in")); return; }
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
-    }, { rootMargin: "0px 0px -8% 0px", threshold: 0.12 });
-    items.forEach((i) => io.observe(i));
-    return () => io.disconnect();
-  }, [root]);
-}
-
-/** Tilts the hero cards toward the pointer on desktop. Writes two CSS variables once per frame at most. */
-function useTilt(stage: RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    const el = stage.current;
-    if (!el || motionReduced() || !matchMedia("(hover: hover) and (pointer: fine)").matches) return;
-    let raf = 0;
-    const onMove = (e: PointerEvent) => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        const r = el.getBoundingClientRect();
-        el.style.setProperty("--tx", ((e.clientX - r.left) / r.width - 0.5).toFixed(3));
-        el.style.setProperty("--ty", ((e.clientY - r.top) / r.height - 0.5).toFixed(3));
-      });
-    };
-    const onLeave = () => { el.style.setProperty("--tx", "0"); el.style.setProperty("--ty", "0"); };
-    const host = el.parentElement ?? el;
-    host.addEventListener("pointermove", onMove, { passive: true });
-    host.addEventListener("pointerleave", onLeave);
-    return () => { host.removeEventListener("pointermove", onMove); host.removeEventListener("pointerleave", onLeave); cancelAnimationFrame(raf); };
-  }, [stage]);
-}
-
-/** Pauses decorative loops when the hero is off screen or the tab is hidden. */
-function usePauseOffscreen(root: RefObject<HTMLElement | null>, hero: RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    const el = root.current, h = hero.current;
-    if (!el || !h || !("IntersectionObserver" in window)) return;
-    let visible = true;
-    const sync = () => el.classList.toggle("paused", !visible || document.visibilityState !== "visible");
-    const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; sync(); });
-    io.observe(h);
-    document.addEventListener("visibilitychange", sync);
-    return () => { io.disconnect(); document.removeEventListener("visibilitychange", sync); };
-  }, [root, hero]);
-}
-
 export default function LandingPage() {
   const { session } = useAuth();
-  const [opening, setOpening] = useState(false);
-  const [demoError, setDemoError] = useState<string | null>(null);
-  const [dark, setDark] = useState(() => isDarkNow());
-  const rootRef = useRef<HTMLDivElement>(null);
-  const heroRef = useRef<HTMLElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
-  useReveal(rootRef);
-  useTilt(stageRef);
-  usePauseOffscreen(rootRef, heroRef);
-  if (session) return <Navigate to="/app" replace />;
-  // The sign-in updates the session, and the redirect above takes over.
-  const explore = async () => {
-    setOpening(true);
-    setDemoError(null);
-    try {
-      const { error } = await signInSample("owner");
-      if (error) throw error;
-    } catch (err) {
-      setDemoError(errorMessage(err));
-    } finally {
-      setOpening(false);
-    }
-  };
-  const flip = () => { toggleNight(); setDark((v) => !v); };
-  const demoButton = demoMode
-    ? <button className="btn ghost lg" onClick={explore} disabled={opening}><MousePointerClick size={18} /> {opening ? "Opening…" : "Explore the demo"}</button>
-    : <a href="#how" className="btn ghost lg">How it works</a>;
-
-  return (
-    <div className="landing" ref={rootRef}>
-      <a className="skip-link" href="#main">Skip to content</a>
-      <header className="landing-nav">
-        <div className="brand"><Logo /><span>Aangan</span></div>
-        <nav className="landing-links" aria-label="Sections"><a href="#features">Features</a><a href="#how">How it works</a></nav>
-        <div className="row gap-sm">
-          <button className="icon-btn" onClick={flip} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button>
-          <Link to="/login" className="btn ghost">Sign in</Link>
-          <Link to="/login?signup=1" className="btn primary">Start free</Link>
-        </div>
-      </header>
-
-      <main id="main">
-        <section className="hero" ref={heroRef}>
-          <div className="hero-copy">
-            <span className="hero-badge glass"><b>New</b> Holi colours · आँगन, the courtyard</span>
-            <h1>Rent, receipts and reminders, <em>without the spreadsheet.</em></h1>
-            <p className="lede">Aangan is the shared space between you, your properties and your tenants. See who has paid at a glance, issue a numbered receipt in one tap, and draft a polite reminder that opens in WhatsApp, ready for you to read and send.</p>
-            <div className="row gap-sm"><Link to="/login?signup=1" className="btn primary lg">Create your account <ArrowRight size={18} /></Link>{demoButton}</div>
-            {demoError && <p className="form-error" role="alert">{demoError}</p>}
-            <div className="hero-trust">
-              <div><strong>1–50</strong><span>units, flats to PGs</span></div>
-              <div><strong>1 tap</strong><span>QR-verified receipts</span></div>
-              <div><strong>Offline</strong><span>installable app</span></div>
-            </div>
-            {demoMode && <p className="small muted">The demo opens a sample workspace you can change freely.</p>}
-          </div>
-          <div className="hero-art">
-            <span className="preview-tag">Preview</span>
-            <div className="hero-stage" ref={stageRef}>
-              <div className="crystal-orb" aria-hidden />
-              <div className="pass demo" style={{ ["--pass" as string]: "#0b6f6d" }}>
-                <div className="pass-inner"><div className="pass-face pass-front">
-                  <Jaali className="pass-art" />
-                  <div className="pass-top"><div><span className="eyebrow light">Apartment</span><h3>Gulmohar Court</h3><span className="pass-unit">Flat 3A</span></div><span className="pill pill-paid">Paid</span></div>
-                  <div className="pass-mid"><div className="avatar light">KI</div><div><span className="eyebrow light">Tenant</span><strong>Kavya Iyer</strong></div></div>
-                  <div className="pass-bottom"><div><span className="eyebrow light">Rent</span><span className="mono big">₹18,500</span></div><div><span className="eyebrow light">Due</span><span className="mono">5 Nov</span></div><div><span className="eyebrow light">Paid</span><span className="mono">₹18,500</span></div></div>
-                </div></div>
-              </div>
-              <div className="hero-receipt"><ReceiptPaper r={PREVIEW_RECEIPT} /></div>
-              <div className="hero-ring card"><Ring value={0.78} size={96} stroke={10}><strong className="mono">78%</strong></Ring><div><span className="eyebrow">November</span><strong className="mono">₹1,44,300</strong><small className="muted">collected</small></div></div>
-              <span className="float-chip ok" aria-hidden><BadgeCheck /> Receipt verified</span>
-              <span className="float-chip wa" aria-hidden><MessageCircle /> Reminder ready to send</span>
-            </div>
-          </div>
-        </section>
-
-        <div className="marquee" aria-label="Built for">
-          <div className="marquee-track">
-            {[...USES, ...USES].map((u, i) => <span key={i} aria-hidden={i >= USES.length}>{u}</span>)}
-          </div>
-        </div>
-
-        <section className="l-section" id="features">
-          <div className="l-head reveal">
-            <span className="eyebrow">Everything in one courtyard</span>
-            <h2>Calm tools for <span className="crystal-text">busy landlords.</span></h2>
-            <p>Six things done well, so the first of the month stops being a chore.</p>
-          </div>
-          <div className="features">
-            {FEATURES.map(([I, title, body, wide], i) => (
-              <div className={`feature reveal${wide ? " wide" : ""}`} key={title} style={{ ["--d" as string]: `${(i % 3) * 0.07}s` }}>
-                <I size={22} /><h3>{title}</h3><p>{body}</p><span className="feature-glow" aria-hidden />
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="l-section" id="how">
-          <div className="l-head reveal">
-            <span className="eyebrow">How it works</span>
-            <h2>Set up in minutes. <span className="crystal-text">Collect all year.</span></h2>
-          </div>
-          <ol className="steps" style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {STEPS.map(([title, body], i) => (
-              <li className="card step reveal" key={title} style={{ ["--d" as string]: `${i * 0.08}s` }}>
-                <span className="step-n">{i + 1}</span><h3>{title}</h3><p>{body}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <section className="cta-band reveal">
-          <span className="eyebrow light">Free for small landlords</span>
-          <h2>Your properties deserve a calmer first of the month.</h2>
-          <p>Create a workspace in under a minute. Invite a partner or a caretaker when you're ready.</p>
-          <div className="row gap-sm wrap"><Link to="/login?signup=1" className="btn lg">Start free <ArrowRight size={18} /></Link>{demoMode && <button className="btn ghost lg" onClick={explore} disabled={opening}>{opening ? "Opening…" : "Try the demo"}</button>}</div>
-        </section>
-      </main>
-
-      <footer className="landing-foot glass">
-        <div className="foot-brand">
-          <div className="brand"><Logo size={26} /><span>Aangan</span></div>
-          <span className="small muted">Rent, receipts and reminders for small landlords in India.</span>
-        </div>
-        <nav className="foot-links" aria-label="Footer">
-          <a href="#features">Features</a><a href="#how">How it works</a><Link to="/login">Sign in</Link><Link to="/login?signup=1">Start free</Link>
-        </nav>
-        <span className="foot-note tiny muted">© {new Date().getFullYear()} Aangan · आँगन, the courtyard</span>
-      </footer>
-    </div>
-  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (session) return <Navigate to="/app" replace/>;
+  async function demo() {
+    setBusy(true);setError("");
+    try { const {error}=await signInSample();if(error)throw error; }
+    catch(e) {setError(errorMessage(e));}
+    finally {setBusy(false);}
+  }
+  return <div className="new-landing">
+    <a className="skip-link" href="#main">Skip to content</a>
+    <header className="public-header"><Link className="brand" to="/"><Logo size={35}/><span>Aangan</span></Link><nav aria-label="Website"><a href="#features">The little details</a><Link to="/login">Sign in</Link><Link className="btn primary" to="/login?signup=1">Make yourself at home <ArrowUpRight size={14}/></Link></nav></header>
+    <main id="main"><section className="new-hero"><div className="new-hero-copy"><span className="hero-kicker"><span/> A CLEARER WAY TO MANAGE RENTALS</span><h1>Good places.<br/>Happy people.<br/><span>Peace of mind.</span></h1><p>Your properties, tenants, and rent. Thoughtfully brought together, so managing a place feels a little more like home.</p><div className="hero-actions"><Link className="btn primary" to="/login?signup=1">Start your next chapter <ArrowRight size={16}/></Link>{demoMode && <button className="btn" onClick={demo} disabled={busy}>{busy ? "Opening your workspace…" : "Explore the demo"}<ChevronRight size={16}/></button>}</div>{error && <p className="form-error" role="alert">{error}</p>}<div className="hero-smallprint"><ShieldCheck size={14}/><span>Built for small landlords. Made for everyday life.</span></div></div>
+    <div className="hero-product-scene"><div className="hero-house"><img src="/media/property-house.jpg" alt="Modern home with a garden, an illustrative property"/><div className="hero-house-shade"/><div className="hero-house-title"><span>ROOM TO GROW</span><h2>Every address.<br/>A new possibility.</h2></div></div><div className="hero-floating-summary"><div className="row between"><span className="preview-icon"><Building2 size={18}/></span><span className="sample-badge">Sample workspace</span></div><span className="small muted">Your month, at a glance</span><strong>Everything in its place.</strong><div className="hero-preview-progress"><i/></div><div className="row between"><span><Check size={12}/> Payments recorded</span><ReceiptText size={16}/></div></div><div className="hero-receipt"><span className="receipt-check"><Check size={18}/></span><div><strong>A little less to think about.</strong><small>Rent recorded. Receipt ready.</small></div><Sparkles size={17}/></div><span className="scene-caption">Illustrative property · Explore your own workspace inside</span></div></section>
+    <section className="product-principles"><span><Home size={18}/> A home for every property</span><span><CreditCard size={18}/> UPI-friendly workflows</span><span><MessageCircle size={18}/> Thoughtful reminders</span><span><ShieldCheck size={18}/> Clear, traceable records</span></section>
+    <section id="features" className="new-features"><div className="features-heading"><span className="welcome-label">LESS ADMIN. MORE LIVING.</span><h2>The details, taken care of.</h2><p>Everything you need to look after your rentals, with room to breathe.</p></div><div className="new-feature-grid">{FEATURES.map((f) => <article key={f.label}><span className="feature-icon"><f.icon size={23}/></span><span className="welcome-label">{f.label}</span><h3>{f.title}</h3><p>{f.text}</p><Link to="/login?signup=1">Find your clarity <ArrowUpRight size={15}/></Link></article>)}</div></section>
+    <section className="public-cta"><div><span className="welcome-label">YOUR NEXT CHAPTER</span><h2>A little more space<br/>for the things that matter.</h2></div><Link to="/login?signup=1" className="btn primary">Create your workspace <ArrowRight size={16}/></Link></section>
+    </main><footer className="public-footer"><Link className="brand" to="/"><Logo size={25}/><span>Aangan</span></Link><span>A little more at home.</span><Link to="/login">Your workspace <ArrowUpRight size={13}/></Link></footer>
+  </div>;
 }

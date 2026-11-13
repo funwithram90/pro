@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
-import { ArrowLeft, Archive, Building2, MapPin, Pencil, UserPlus } from "lucide-react";
-import { useData, useLive } from "../../state/data";
+import { ArrowLeft, ArrowUpRight, Archive, Building2, MapPin, Pencil, Plus, Search, UserPlus } from "lucide-react";
+import { useCanWrite, useData, useLive } from "../../state/data";
 import { useNotify } from "../../state/notify";
 import { supabase, errorMessage } from "../../services/supabase";
-import { currentPeriod, money } from "../../utils/format";
+import { currentPeriod, money, todayISO } from "../../utils/format";
 import { rentRows } from "../../domain/rent";
 import { Empty, Pill, SheetIf } from "../../components/ui/ui";
 import { PropertyForm, TenantLeaseForm } from "../../components/forms/forms";
@@ -12,31 +12,27 @@ import type { ShellCtx } from "../../components/layout/shell";
 
 export function PropertiesPage() {
   const live = useLive();
+  const canWrite = useCanWrite();
   const { openAdd } = useOutletContext<ShellCtx>();
   const rows = useMemo(() => rentRows(currentPeriod(), live), [live]);
-  return (
-    <div className="page">
-      <div className="page-head"><h1 className="display">Properties</h1><button className="btn primary small" onClick={() => openAdd("property")}>Add property</button></div>
-      {live.properties.length === 0 ? <div className="card"><Empty icon={<Building2 />} title="No properties yet" /></div> : (
-        <div className="card-grid">
-          {live.properties.map((p) => {
-            const units = live.units.filter((u) => u.property_id === p.id);
-            const pr = rows.filter((r) => r.property.id === p.id);
-            const rent = pr.reduce((s, r) => s + r.rent, 0);
-            return (
-              <Link key={p.id} to={`/app/properties/${p.id}`} className="card prop-card">
-                <div className="row between"><span className="eyebrow">{p.type}</span><span className="small muted">{pr.length}/{units.length} occupied</span></div>
-                <h2 className="h3">{p.name}</h2>
-                {p.address && <p className="muted small"><MapPin size={12} /> {p.address}</p>}
-                <div className="unit-dots">{units.map((u) => <span key={u.id} className="dot" style={{ background: u.pass_colour ?? "var(--accent)" }} title={u.label} />)}</div>
-                <div className="row between"><span className="small muted">Monthly rent</span><span className="mono">{money(rent)}</span></div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+  const [q, setQ] = useState("");
+  const [kind, setKind] = useState("All properties");
+  const kinds = ["All properties", ...new Set(live.properties.map((p) => p.type))];
+  const list = live.properties.filter((p) => (kind === "All properties" || p.type === kind) && `${p.name} ${p.address ?? ""}`.toLowerCase().includes(q.toLowerCase()));
+  return <div className="page properties-page">
+    <div className="page-head"><div><span className="welcome-label">YOUR PORTFOLIO</span><h1 className="display">Places with possibilities<span className="greeting-dot">.</span></h1><p className="page-sub">Every property. Every unit. All in a good place.</p></div>{canWrite && <button className="btn primary" onClick={() => openAdd("property")}><Plus size={16}/> Add property</button>}</div>
+    <div className="portfolio-toolbar"><div className="property-filters">{kinds.map((k) => <button key={k} onClick={() => setKind(k)} aria-pressed={kind === k} className={kind === k ? "active" : ""}>{k}{k === "All properties" && <span>{live.properties.length}</span>}</button>)}</div><label className="property-search"><Search size={15}/><input aria-label="Search properties" placeholder="Find a property…" value={q} onChange={(e) => setQ(e.target.value)}/></label></div>
+    {!list.length ? <div className="card"><Empty icon={<Building2/>} title={live.properties.length ? "No properties found" : "Make room for your first property"}>{live.properties.length ? "Try a different name or property type." : "Add a property and its units to start your rental journey."}</Empty></div> : <div className="premium-property-grid">{list.map((p) => {
+      const units=live.units.filter((u) => u.property_id === p.id);
+      const pr=rows.filter((r) => r.property.id === p.id);
+      const rent=pr.reduce((s,r) => s+r.rent,0);
+      const collected=pr.reduce((s,r) => s+Math.min(r.paid,r.rent),0);
+      const occupied=new Set(live.leases.filter((l) => l.status === "active" && l.start_date <= todayISO() && (!l.end_date || l.end_date >= todayISO())).map((l) => l.unit_id));
+      const count=units.filter((u) => occupied.has(u.id)).length;
+      const demoIndex=live.properties.findIndex((x) => x.id === p.id);
+      return <Link to={`/app/properties/${p.id}`} className="premium-property" key={p.id}><div className="premium-property-cover">{live.demo && demoIndex < 2 ? <img src={`/media/property-${demoIndex === 0 ? "house" : "interior"}.jpg`} alt=""/> : <Building2 size={60}/>}<span className="property-type">{p.type}</span><span className="property-open"><ArrowUpRight size={18}/></span></div><div className="premium-property-body"><h2>{p.name}</h2><p className="property-address"><MapPin size={12}/>{p.address || "Address not added"}</p><div className="property-unit-info"><span><Building2 size={13}/>{units.length} units</span><span><i/>{count} occupied</span></div><div className="property-financials"><div><small>Monthly rent</small><strong>{money(rent)}</strong></div><div><small>Collected</small><strong className="positive">{money(collected)}</strong></div></div><div className="property-collection-track"><i style={{width:`${rent ? collected/rent*100 : 0}%`}}/></div><small className="property-collection-label">{rent ? Math.round(collected/rent*100) : 0}% of this month’s rent recorded</small></div></Link>;
+    })}{canWrite && <button className="property-add-card" onClick={() => openAdd("property")}><span><Plus size={25}/></span><strong>Your next property</strong><small>A new address. A new possibility.</small><span className="btn">Add property <ArrowUpRight size={14}/></span></button>}</div>}
+  </div>;
 }
 
 export function PropertyDetailPage() {

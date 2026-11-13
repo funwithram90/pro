@@ -1,9 +1,9 @@
 import { Suspense, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { NavLink, useLocation, useNavigate, useOutlet } from "react-router-dom";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   BellRing, Building2, ChevronLeft, CreditCard, FileText, FolderOpen, Hammer, Home, IndianRupee, Landmark, LineChart, Plus, Receipt, Settings,
-  Sparkles, Users, UsersRound, Wallet, Wrench, X,
+  Sparkles, Users, UsersRound, Wallet, Wrench, X, Search, ChevronDown, Moon, Sun, ArrowUpRight, LayoutDashboard,
 } from "lucide-react";
 import { useData } from "../../state/data";
 import { initials, tone } from "../../utils/format";
@@ -11,6 +11,9 @@ import { haptic } from "../../interaction/touch";
 import { ExpenseForm, PaymentForm, PropertyForm, TaskForm, TenantLeaseForm } from "../forms/forms";
 import { BUTTER, LENS_SPRING, Logo, NAV_EXIT, NAV_SPRING, SheetIf, SPRING } from "../ui/ui";
 import { SyncStatus } from "./sync";
+import { isDarkNow, toggleNight } from "../../theme/theme";
+import { useAppReducedMotion } from "../../interaction/motion";
+import { useDialog } from "../../interaction/dialog";
 import { prefetchAppScreens, prefetchHandlers } from "../../app/routes";
 
 type AddKind = "payment" | "tenant" | "property" | "task" | "expense";
@@ -20,24 +23,22 @@ const ADD_TITLES: Record<AddKind, string> = {
 
 type NavItem = { to: string; label: string; icon: typeof Home; end?: boolean };
 const NAV: NavItem[] = [
-  { to: "/app", label: "Home", icon: Home, end: true },
-  { to: "/app/wallet", label: "Wallet", icon: Wallet },
+  { to: "/app", label: "Overview", icon: LayoutDashboard, end: true },
+  { to: "/app/properties", label: "Properties", icon: Building2 },
+  { to: "/app/tenants", label: "Tenants", icon: Users },
   { to: "/app/payments", label: "Payments", icon: CreditCard },
-  { to: "/app/tasks", label: "Tasks", icon: Wrench },
 ];
 const GROUPS: { title: string; items: NavItem[] }[] = [
-  { title: "Collect", items: [
+  { title: "Operations", items: [
+    { to: "/app/wallet", label: "Rent wallet", icon: Wallet },
     { to: "/app/reminders", label: "Reminders", icon: BellRing },
+    { to: "/app/tasks", label: "Maintenance", icon: Wrench },
     { to: "/app/billing", label: "Billing", icon: FileText },
-    { to: "/app/reconcile", label: "Reconcile", icon: Landmark },
   ] },
-  { title: "Manage", items: [
-    { to: "/app/properties", label: "Properties", icon: Building2 },
-    { to: "/app/tenants", label: "Tenants", icon: Users },
-    { to: "/app/documents", label: "Documents", icon: FolderOpen },
-  ] },
-  { title: "Insights", items: [
+  { title: "Insights & records", items: [
     { to: "/app/reports", label: "Reports", icon: LineChart },
+    { to: "/app/reconcile", label: "Reconciliation", icon: Landmark },
+    { to: "/app/documents", label: "Documents", icon: FolderOpen },
     { to: "/app/assistant", label: "Assistant", icon: Sparkles },
   ] },
   { title: "Workspace", items: [
@@ -52,7 +53,7 @@ function isActive(pathname: string, n: NavItem) {
 }
 
 const TAB_TITLES: [RegExp, string][] = [
-  [/^\/app\/?$/, "Home"], [/^\/app\/wallet/, "Wallet"], [/^\/app\/payments\/./, "Receipt"], [/^\/app\/payments/, "Payments"],
+  [/^\/app\/?$/, "Overview"], [/^\/app\/wallet/, "Wallet"], [/^\/app\/payments\/./, "Receipt"], [/^\/app\/payments/, "Payments"],
   [/^\/app\/tasks/, "Tasks"], [/^\/app\/properties\/./, "Property"], [/^\/app\/properties/, "Properties"], [/^\/app\/tenants\/./, "Tenant"],
   [/^\/app\/tenants/, "Tenants"], [/^\/app\/reminders/, "Reminders"], [/^\/app\/billing/, "Billing"], [/^\/app\/reconcile/, "Reconcile"],
   [/^\/app\/documents/, "Documents"], [/^\/app\/reports/, "Reports"], [/^\/app\/assistant/, "Assistant"], [/^\/app\/team/, "Team"],
@@ -89,15 +90,16 @@ function useScrollInfo() {
 export function AppShell() {
   const { workspace, role, demo, reminders, tasks } = useData();
   const [menu, setMenu] = useState(false);
+  const quickRef = useDialog(menu, () => setMenu(false));
   const [add, setAdd] = useState<AddKind | null>(null);
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const reduce = useReducedMotion();
+  const reduce = useAppReducedMotion();
   const close = () => setAdd(null);
   const canWrite = role !== "viewer";
   const pending = reminders.filter((r) => r.status === "pending").length;
   const urgent = tasks.filter((t) => t.status !== "done" && (t.priority === "urgent" || t.priority === "high")).length;
-  const { scrolled, minimized } = useScrollInfo();
+  const { scrolled } = useScrollInfo();
   const title = TAB_TITLES.find(([re]) => re.test(pathname))?.[1] ?? "Aangan";
   const isRoot = NAV.some((n) => n.to === pathname || (n.end && pathname === n.to + "/"));
   const outlet = useOutlet({ openAdd: setAdd } satisfies ShellCtx);
@@ -113,14 +115,15 @@ export function AppShell() {
   return (
     <div className={`app ${scrolled ? "is-scrolled" : ""}`}>
       <aside className="sidebar">
-        <div className="brand"><Logo /><span>Aangan</span></div>
+        <div className="brand"><Logo size={36}/><span>Aangan<span className="brand-caption">A little more at home.</span></span></div>
+        <div className="workspace-switch"><span className="workspace-icon"><Building2 size={18}/></span><span className="grow"><strong>{workspace?.name}</strong><small>Your workspace</small></span></div>
         {canWrite && <button className="btn primary block" onClick={() => setMenu(true)}><Plus size={16} /> Quick add</button>}
-        <nav aria-label="Main">
+        <nav aria-label="Main"><span className="side-group">Workspace overview</span>
           {NAV.map((n) => <SideLink key={n.to} n={n} active={isActive(pathname, n)} />)}
           {GROUPS.map((g) => (
             <div key={g.title} className="side-section">
               <span className="side-group">{g.title}</span>
-              {g.items.map((n) => <SideLink key={n.to} n={n} active={isActive(pathname, n)} badge={n.to === "/app/reminders" ? pending : 0} />)}
+              {g.items.map((n) => <SideLink key={n.to} n={n} active={isActive(pathname, n)} badge={n.to === "/app/reminders" ? pending : n.to === "/app/tasks" ? urgent : 0} />)}
             </div>
           ))}
         </nav>
@@ -133,6 +136,7 @@ export function AppShell() {
         </button>
       </aside>
 
+      <DesktopHeader title={title} pending={pending} urgent={urgent}/>
       <header className="topbar">
         <div className="topbar-inner">
           <div className="nav-lead">
@@ -147,6 +151,7 @@ export function AppShell() {
             )}
           </AnimatePresence>
           <div className="nav-trail nav-glass-group">
+            {urgent > 0 && <NavLink to="/app/tasks" className="nav-glass-btn badge-host" aria-label={`Maintenance, ${urgent} high priority`}><Wrench size={18}/><span className="badge">{urgent}</span></NavLink>}
             <NavLink to="/app/reminders" className="nav-glass-btn badge-host" aria-label={pending > 0 ? `Reminders, ${pending} pending` : "Reminders"}>
               <BellRing size={18} />{pending > 0 && <span className="badge">{pending}</span>}
             </NavLink>
@@ -162,7 +167,7 @@ export function AppShell() {
         {demo && (
           <div className="demo-banner">
             <Sparkles size={15} />
-            <span><strong>Running on the mock backend.</strong> <span className="demo-more">Everything works and saves in this browser.</span> <NavLink to="/app/settings" className="link">Reset or learn more</NavLink></span>
+            <span><strong>Demo workspace</strong><span className="demo-more"> · Explore freely. Sample data saves only in this browser.</span> <NavLink to="/app/settings" className="link">Manage demo <ArrowUpRight size={12}/></NavLink></span>
           </div>
         )}
         <SyncStatus />
@@ -182,8 +187,8 @@ export function AppShell() {
         </Suspense>
       </main>
 
-      <div className={`tabdock ${minimized ? "min" : ""}`}>
-        <TabBar pathname={pathname} badges={{ "/app/tasks": urgent }} onNavigate={(to) => navigate(to)} />
+      <div className="tabdock">
+        <TabBar pathname={pathname} badges={{}} onNavigate={(to) => navigate(to)} />
         <button className="tab-plus" onClick={() => { haptic(); setMenu(true); }} aria-label="Quick add and more"><Plus size={24} /></button>
       </div>
 
@@ -191,7 +196,7 @@ export function AppShell() {
         {menu && (
           <motion.div className="sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setMenu(false)}
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
-            <motion.div className="quick" role="dialog" aria-modal="true" aria-label="Quick add"
+            <motion.div ref={quickRef} className="quick" role="dialog" aria-modal="true" aria-label="Quick add"
               style={{ transformOrigin: "100% 100%" }}
               initial={reduce ? { opacity: 0 } : { y: 24, opacity: 0, scale: 0.82 }} animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={reduce ? { opacity: 0 } : { y: 16, opacity: 0, scale: 0.9, transition: { duration: 0.16, ease: [0.4, 0, 1, 1] } }} transition={SPRING}>
@@ -231,13 +236,34 @@ export function AppShell() {
   );
 }
 
+function DesktopHeader({ title, pending, urgent }: { title: string; pending: number; urgent: number }) {
+  const { tenants, properties, workspace } = useData();
+  const [query, setQuery] = useState("");
+  const [dark, setDark] = useState(isDarkNow);
+  const navigate = useNavigate();
+  useEffect(() => {
+    const sync = () => setDark(isDarkNow());
+    const observer = new MutationObserver(sync);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-mode"] });
+    const media = matchMedia("(prefers-color-scheme: dark)");
+    media.addEventListener("change", sync);
+    return () => { observer.disconnect(); media.removeEventListener("change", sync); };
+  }, []);
+  const q = query.trim().toLocaleLowerCase();
+  const results = q ? [
+    ...tenants.filter((t) => !t.archived_at && t.name.toLocaleLowerCase().includes(q)).map((t) => ({ name: t.name, type: "Tenant", path: `/app/tenants/${t.id}` })),
+    ...properties.filter((p) => !p.archived_at && p.name.toLocaleLowerCase().includes(q)).map((p) => ({ name: p.name, type: "Property", path: `/app/properties/${p.id}` })),
+  ].slice(0, 6) : [];
+  return <header className="desktop-header"><div className="breadcrumb">Workspace <span>/</span> <strong>{title}</strong></div><div className="desktop-search" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setQuery(""); }}><Search size={16}/><input aria-label="Search tenants and properties" placeholder="Search your workspace…" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => {if(e.key === "Escape") setQuery("");}}/>{q && <div className="workspace-results" onMouseDown={(e) => { if (e.button === 0) e.preventDefault(); }}>{results.length ? results.map((r) => <button key={r.path} onClick={() => {setQuery("");navigate(r.path);}}><span>{r.name}<small>{r.type}</small></span><ArrowUpRight size={14}/></button>) : <p>No tenants or properties found.</p>}</div>}</div><div className="desktop-header-actions">{urgent > 0 && <NavLink to="/app/tasks" className="header-icon badge-host" aria-label={`Maintenance, ${urgent} high priority`}><Wrench size={18}/><span className="badge">{urgent}</span></NavLink>}<button className="header-icon" onClick={() => {const next = !isDarkNow();toggleNight();setDark(next);}} aria-label="Toggle light and dark appearance">{dark ? <Sun size={18}/> : <Moon size={18}/>}</button><NavLink className="header-icon notification-button" to="/app/reminders" aria-label={`Reminders, ${pending} pending`}><BellRing size={18}/>{pending > 0 && <i/>}</NavLink><span className="header-divider"/><button className="header-profile" onClick={() => navigate("/app/settings")} aria-label="Workspace settings"><span className="avatar" data-tone="3">{initials(workspace?.name ?? "A")}</span><ChevronDown size={14}/></button></div></header>;
+}
+
 /**
  * Telegram-iOS style tab bar: a glass capsule with a liquid lens on the active tab. Press and drag along the bar and
  * the lens lifts (grows, turns clearer) and follows the finger; let go over a tab to open it.
  */
 function TabBar({ pathname, badges, onNavigate }: { pathname: string; badges: Record<string, number>; onNavigate: (to: string) => void }) {
   const bar = useRef<HTMLElement>(null);
-  const reduce = useReducedMotion();
+  const reduce = useAppReducedMotion();
   const active = Math.max(0, NAV.findIndex((n) => isActive(pathname, n)));
   const onTab = NAV.some((n) => isActive(pathname, n));
   const [scrub, setScrub] = useState<{ x: number; moved: boolean } | null>(null);
